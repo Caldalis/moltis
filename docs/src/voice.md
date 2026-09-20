@@ -104,7 +104,7 @@ similarity_boost = 0.75
 [voice.tts.openai]
 # No api_key needed if OpenAI is configured as an LLM provider or OPENAI_API_KEY is set.
 # api_key = "sk-..."
-# base_url = "http://10.1.2.30:8003"  # Override for OpenAI-compatible servers (e.g. Chatterbox)
+# base_url = "http://10.1.2.30:8003"  # Override for OpenAI-compatible servers (e.g. Chatterbox, VoxCPM)
 voice = "alloy"  # alloy, echo, fable, onyx, nova, shimmer
 model = "tts-1"
 speed = 1.0
@@ -191,6 +191,54 @@ the [`coqui-tts` PyPI package](https://pypi.org/project/coqui-tts/).
    ```
 
 Browse available models in the maintained fork's [standard model list](https://github.com/idiap/coqui-ai-TTS/blob/dev/TTS/.models.json).
+
+#### VoxCPM
+
+[VoxCPM](https://github.com/OpenBMB/VoxCPM) is an Apache-2.0 tokenizer-free TTS
+model (2B parameters, 30 languages, 48 kHz output) with voice design and voice
+cloning. Moltis has no dedicated VoxCPM provider, but VoxCPM can be served
+behind an OpenAI-compatible endpoint and driven through the existing
+`[voice.tts.openai]` settings.
+
+1. Serve VoxCPM with [vLLM-Omni](https://github.com/vllm-project/vllm-omni),
+   which exposes a drop-in `/v1/audio/speech` endpoint:
+   ```bash
+   uv pip install vllm==0.19.0 --torch-backend=auto
+   git clone https://github.com/vllm-project/vllm-omni.git && cd vllm-omni
+   uv pip install -e .
+
+   vllm serve openbmb/VoxCPM2 --omni --port 8000
+   ```
+
+2. Configure in `moltis.toml`:
+   ```toml
+   [voice.tts]
+   provider = "openai"
+
+   [voice.tts.openai]
+   base_url = "http://localhost:8000/v1"
+   model = "openbmb/VoxCPM2"
+   ```
+
+No API key is required: a custom `base_url` counts as sufficient configuration,
+and the `Authorization` header is omitted when no key is set.
+
+> **Warning:** if `OPENAI_API_KEY` is set in the environment, or an OpenAI LLM
+> provider is configured in `moltis.toml`, that key is reused for TTS and sent
+> to whatever host `base_url` points at. Only point `base_url` at a server you
+> trust.
+
+VoxCPM's Voice Design works on this path, because VoxCPM encodes it as a
+parenthetical prefix in the input text rather than as a separate API field:
+
+```text
+(A young woman, gentle and sweet voice)Hello, welcome to Moltis!
+```
+
+Reference-audio cloning and VoxCPM's sampling controls (`cfg_value`,
+`inference_timesteps`, `seed`) are not reachable through the OpenAI request
+shape. The provider also appears as "OpenAI TTS" in the web UI, because it is
+reached through the OpenAI-compatible client.
 
 ### RPC Methods
 
