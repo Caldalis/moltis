@@ -9,7 +9,7 @@ use {
 
 use moltis_voice::{
     AudioFormat, CoquiTts, ElevenLabsTts, GoogleTts, OpenAiTts, PiperTts, SynthesizeRequest,
-    TtsConfig, TtsProvider, TtsProviderId, parse_tts_directives, strip_ssml_tags,
+    TtsConfig, TtsProvider, TtsProviderId, VoxCpmTts, parse_tts_directives, strip_ssml_tags,
 };
 
 use crate::services::{ServiceError, ServiceResult, TtsService};
@@ -86,6 +86,12 @@ impl LiveTtsService {
                 speaker: None,
                 language: None,
             },
+            voxcpm: moltis_voice::VoxCpmTtsConfig {
+                endpoint: cfg.voice.tts.voxcpm.endpoint.clone(),
+                model: cfg.voice.tts.voxcpm.model.clone(),
+                voice: cfg.voice.tts.voxcpm.voice.clone(),
+                voice_design: cfg.voice.tts.voxcpm.voice_design,
+            },
         }
     }
 
@@ -133,6 +139,14 @@ impl LiveTtsService {
                     None
                 }
             },
+            TtsProviderId::VoxCpm => {
+                let voxcpm = VoxCpmTts::new(&config.voxcpm);
+                if voxcpm.is_configured() {
+                    Some(Box::new(voxcpm) as Box<dyn TtsProvider + Send + Sync>)
+                } else {
+                    None
+                }
+            },
         }
     }
 
@@ -151,6 +165,11 @@ impl LiveTtsService {
             (TtsProviderId::Google, config.google.api_key.is_some()),
             (TtsProviderId::Piper, config.piper.model_path.is_some()),
             (TtsProviderId::Coqui, true), // Always available if server running
+            (
+                TtsProviderId::VoxCpm,
+                config.voxcpm.model.is_some()
+                    || config.voxcpm.endpoint != moltis_voice::VOXCPM_DEFAULT_ENDPOINT,
+            ),
         ]
     }
 

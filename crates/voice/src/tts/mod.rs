@@ -7,10 +7,16 @@ mod google;
 pub mod mock;
 mod openai;
 mod piper;
+mod voxcpm;
 
 pub use {
-    coqui::CoquiTts, elevenlabs::ElevenLabsTts, google::GoogleTts, mock::MockTts,
-    openai::OpenAiTts, piper::PiperTts,
+    coqui::CoquiTts,
+    elevenlabs::ElevenLabsTts,
+    google::GoogleTts,
+    mock::MockTts,
+    openai::OpenAiTts,
+    piper::PiperTts,
+    voxcpm::{DEFAULT_ENDPOINT as VOXCPM_DEFAULT_ENDPOINT, VoxCpmTts},
 };
 
 use {
