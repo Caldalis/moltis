@@ -1108,6 +1108,7 @@ pub(super) fn toggle_voice_provider(
                 "google" => cfg.voice.tts.google.enabled = enabled,
                 "piper" => cfg.voice.tts.piper.enabled = enabled,
                 "coqui" => cfg.voice.tts.coqui.enabled = enabled,
+                "voxcpm" => cfg.voice.tts.voxcpm.enabled = enabled,
                 _ => {},
             }
             if !enabled

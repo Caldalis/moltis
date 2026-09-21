@@ -34,7 +34,7 @@ use {
 };
 
 /// Default vLLM-Omni OpenAI-compatible base URL.
-pub const DEFAULT_ENDPOINT: &str = "http://localhost:8000/v1";
+const DEFAULT_ENDPOINT: &str = "http://localhost:8000/v1";
 
 /// Synthesis can be slow on CPU-bound or cold servers.
 const SYNTHESIZE_TIMEOUT: Duration = Duration::from_secs(120);
@@ -223,10 +223,14 @@ impl TtsProvider for VoxCpmTts {
     }
 
     fn is_configured(&self) -> bool {
-        // Mirrors the other local providers: a non-default endpoint or an
-        // explicit model counts as deliberate configuration. Whether the
-        // server is actually up is probed separately by the gateway.
-        self.endpoint != DEFAULT_ENDPOINT || self.model.is_some()
+        // Nothing here needs configuring: VoxCPM takes no credential, and
+        // vLLM-Omni serves a single speech model whose name it reports itself,
+        // so `model` is optional. The only real gate is whether the server is
+        // up, which the gateway probes separately via `check_voxcpm_server`.
+        // Requiring a non-default endpoint (the Coqui pattern) would reject the
+        // documented default deployment and fail with "provider not
+        // configured" for anyone who followed the setup docs verbatim.
+        true
     }
 
     async fn voices(&self) -> Result<Vec<Voice>> {
@@ -390,23 +394,19 @@ mod tests {
     }
 
     #[test]
-    fn defaults_are_not_considered_configured() {
-        assert!(!provider(VoxCpmTtsConfig::default()).is_configured());
-    }
-
-    #[test]
-    fn explicit_model_marks_configured() {
-        let tts = provider(VoxCpmTtsConfig {
-            model: Some("openbmb/VoxCPM2".into()),
-            ..Default::default()
-        });
+    fn default_deployment_is_configured() {
+        // The documented setup is `vllm serve ... --port 8000` with no extra
+        // config, which leaves endpoint at the default and model unset. That
+        // must still count as configured or `tts.enable` refuses the provider.
+        let tts = provider(VoxCpmTtsConfig::default());
         assert!(tts.is_configured());
     }
 
     #[test]
-    fn custom_endpoint_marks_configured() {
+    fn explicit_model_and_custom_endpoint_stay_configured() {
         let tts = provider(VoxCpmTtsConfig {
             endpoint: "http://10.0.0.5:8000/v1".into(),
+            model: Some("openbmb/VoxCPM2".into()),
             ..Default::default()
         });
         assert!(tts.is_configured());
@@ -418,10 +418,9 @@ mod tests {
             endpoint: "http://localhost:8000/v1/".into(),
             ..Default::default()
         });
-        // Trimming must also keep the default recognisable, so a slash-only
-        // difference does not silently look like a custom endpoint.
+        // Request URLs are built as `{endpoint}/audio/speech`, so a trailing
+        // slash would produce a double slash in every path.
         assert_eq!(tts.endpoint, DEFAULT_ENDPOINT);
-        assert!(!tts.is_configured());
     }
 
     #[test]
@@ -442,7 +441,6 @@ mod tests {
         });
         assert!(tts.model.is_none());
         assert!(tts.voice.is_none());
-        assert!(!tts.is_configured());
     }
 
     #[test]

@@ -21,7 +21,7 @@ pub use {
     },
     tts::{
         AudioFormat, AudioOutput, CoquiTts, ElevenLabsTts, GoogleTts, OpenAiTts, PiperTts,
-        SynthesizeRequest, TtsDirectives, TtsProvider, VOXCPM_DEFAULT_ENDPOINT, Voice, VoxCpmTts,
-        contains_ssml, parse_tts_directives, sanitize_text_for_tts, strip_ssml_tags,
+        SynthesizeRequest, TtsDirectives, TtsProvider, Voice, VoxCpmTts, contains_ssml,
+        parse_tts_directives, sanitize_text_for_tts, strip_ssml_tags,
     },
 };

@@ -165,11 +165,7 @@ impl LiveTtsService {
             (TtsProviderId::Google, config.google.api_key.is_some()),
             (TtsProviderId::Piper, config.piper.model_path.is_some()),
             (TtsProviderId::Coqui, true), // Always available if server running
-            (
-                TtsProviderId::VoxCpm,
-                config.voxcpm.model.is_some()
-                    || config.voxcpm.endpoint != moltis_voice::VOXCPM_DEFAULT_ENDPOINT,
-            ),
+            (TtsProviderId::VoxCpm, true), // Always available if server running
         ]
     }
 
@@ -583,8 +579,8 @@ mod tests {
         let providers = service.providers().await.unwrap();
 
         let providers_arr = providers.as_array().unwrap();
-        // 5 providers: elevenlabs, openai, google, piper, coqui
-        assert_eq!(providers_arr.len(), 5);
+        // 6 providers: elevenlabs, openai, google, piper, coqui, voxcpm
+        assert_eq!(providers_arr.len(), 6);
 
         let ids: Vec<_> = providers_arr
             .iter()
@@ -595,6 +591,7 @@ mod tests {
         assert!(ids.contains(&"google"));
         assert!(ids.contains(&"piper"));
         assert!(ids.contains(&"coqui"));
+        assert!(ids.contains(&"voxcpm"));
     }
 
     #[tokio::test]

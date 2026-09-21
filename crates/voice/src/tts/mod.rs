@@ -10,13 +10,8 @@ mod piper;
 mod voxcpm;
 
 pub use {
-    coqui::CoquiTts,
-    elevenlabs::ElevenLabsTts,
-    google::GoogleTts,
-    mock::MockTts,
-    openai::OpenAiTts,
-    piper::PiperTts,
-    voxcpm::{DEFAULT_ENDPOINT as VOXCPM_DEFAULT_ENDPOINT, VoxCpmTts},
+    coqui::CoquiTts, elevenlabs::ElevenLabsTts, google::GoogleTts, mock::MockTts,
+    openai::OpenAiTts, piper::PiperTts, voxcpm::VoxCpmTts,
 };
 
 use {
