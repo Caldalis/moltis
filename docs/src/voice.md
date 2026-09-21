@@ -262,6 +262,24 @@ Set `voice_design = false` to send text through unchanged. The prefix is also
 skipped when the text already begins with its own `(...)` clause, so a
 `[[tts:...]]` directive can override the persona per message.
 
+**Write the persona for timbre, not just for character.** VoxCPM only shapes
+the voice from words that describe how it should *sound*. Measured against a
+live server, `"A wise British butler, Dry wit"` raised the median F0 from
+144.7 Hz to 191.1 Hz — a real change, but an arbitrary one, because none of
+those words says anything about the voice. Adding a single timbre cue steers
+it predictably:
+
+| Persona description | Median F0 |
+|---------------------|-----------|
+| *(no persona)* | 144.7 Hz |
+| A wise British butler, Dry wit | 191.1 Hz |
+| A **deep**, wise British butler, Dry wit | 127.5 Hz |
+| A **deep, elderly** British butler, dry and measured | 102.1 Hz |
+
+So put words like `deep`, `elderly`, `bright`, `breathy` or `resonant` in the
+persona's `profile` or `accent`. Traits such as "wise" or "dry wit" describe
+the character and leave the timbre to chance.
+
 ##### Voice cloning
 
 Register a speaker with the server, then reference it by name:
@@ -277,7 +295,9 @@ curl -X POST http://localhost:8000/v1/audio/voices \
 
 `consent` is required by vLLM-Omni and records who authorised the use of this
 voice. `ref_text` is optional but improves quality: with it the server does
-in-context cloning, without it only a speaker embedding is extracted.
+in-context cloning, without it only a speaker embedding is extracted. The
+clip must be at least one second of clear speech; shorter audio is rejected
+with `Reference audio too short`.
 
 ```toml
 [voice.tts.voxcpm]
