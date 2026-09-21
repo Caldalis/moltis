@@ -98,28 +98,73 @@ fn non_empty(value: Option<&str>) -> Option<String> {
         .map(ToString::to_string)
 }
 
-/// Flatten a persona instruction block into a single parenthesised clause.
+/// Flatten a persona instruction block into a VoxCPM voice-design clause.
 ///
-/// `VoicePersonaPrompt::render` produces newline-separated `Key: value` lines.
-/// VoxCPM reads a voice description from a `(...)` prefix on the text, so the
-/// block is collapsed onto one line and its own parentheses are dropped to
-/// keep the delimiter unambiguous.
+/// `VoicePersonaPrompt::render` emits newline-separated `Key: value` lines.
+/// VoxCPM reads a voice description from a `(...)` prefix on the text, but it
+/// only responds to a *plain* description: measuring F0 against a real
+/// `openbmb/VoxCPM2` server showed that any surviving `Key:` label collapses
+/// the effect back to the no-prefix baseline, while the same words without
+/// labels shift pitch substantially. A single `Profile:` is enough to break it.
+///
+/// So the field labels are stripped and only the values are kept. The
+/// `Persona:` line is dropped outright — it carries the persona's internal
+/// name, which describes the identity rather than how the voice should sound.
+/// Parentheses are removed so they cannot terminate the prefix early.
 fn flatten_voice_design(instructions: &str) -> String {
-    let mut out = String::with_capacity(instructions.len());
+    /// Labels emitted by `VoicePersonaPrompt::render`.
+    const VALUE_LABELS: [&str; 6] = [
+        "Profile",
+        "Style",
+        "Accent",
+        "Pacing",
+        "Scene",
+        "Constraints",
+    ];
+    /// Identity, not voice direction: never reaches the model.
+    const DROPPED_LABELS: [&str; 1] = ["Persona"];
+
+    let mut parts: Vec<String> = Vec::new();
+
+    for line in instructions.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+
+        let label = line.split_once(':').map(|(head, _)| head.trim());
+        if label.is_some_and(|l| DROPPED_LABELS.iter().any(|d| l.eq_ignore_ascii_case(d))) {
+            continue;
+        }
+
+        // Keep the value only when the line is one of the known persona
+        // fields; anything else is already free-form description.
+        let value = match (label, line.split_once(':')) {
+            (Some(l), Some((_, tail)))
+                if VALUE_LABELS.iter().any(|k| l.eq_ignore_ascii_case(k)) =>
+            {
+                tail
+            },
+            _ => line,
+        };
+
+        let cleaned = normalize_clause(value);
+        if !cleaned.is_empty() {
+            parts.push(cleaned);
+        }
+    }
+
+    parts.join(", ")
+}
+
+/// Collapse whitespace and drop parentheses from one description fragment.
+fn normalize_clause(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
     let mut pending_space = false;
 
-    for ch in instructions.chars() {
+    for ch in value.chars() {
         match ch {
             '(' | ')' => {},
-            '\n' | '\r' => {
-                if !out.is_empty() {
-                    // Newline-separated fields read better as a comma list.
-                    if !out.ends_with(',') {
-                        out.push(',');
-                    }
-                    pending_space = true;
-                }
-            },
             c if c.is_whitespace() => {
                 if !out.is_empty() {
                     pending_space = true;
@@ -135,7 +180,7 @@ fn flatten_voice_design(instructions: &str) -> String {
         }
     }
 
-    while out.ends_with(',') {
+    while out.ends_with(',') || out.ends_with('.') {
         out.pop();
     }
     out
@@ -423,27 +468,55 @@ mod tests {
     }
 
     #[test]
-    fn persona_block_becomes_a_single_design_clause() {
+    fn persona_block_keeps_values_and_drops_field_labels() {
+        // Measured against a real VoxCPM2 server: a surviving `Key:` label
+        // collapses the voice-design effect back to the no-prefix baseline,
+        // so only the values may reach the model.
         let rendered = "Persona: Alfred\nProfile: A wise British butler\nStyle: Dry wit";
         assert_eq!(
             flatten_voice_design(rendered),
-            "Persona: Alfred, Profile: A wise British butler, Style: Dry wit"
+            "A wise British butler, Dry wit"
+        );
+    }
+
+    #[test]
+    fn persona_name_never_reaches_the_model() {
+        // `Persona: <label>` is an internal identifier, not voice direction.
+        assert_eq!(flatten_voice_design("Persona: Alfred"), "");
+        assert!(!flatten_voice_design("Persona: Alfred\nStyle: Dry wit").contains("Alfred"));
+    }
+
+    #[test]
+    fn all_rendered_persona_fields_are_unlabelled() {
+        let rendered =
+            "Persona: N\nProfile: p\nStyle: s\nAccent: a\nPacing: c\nScene: e\nConstraints: x. y";
+        let out = flatten_voice_design(rendered);
+        assert_eq!(out, "p, s, a, c, e, x. y");
+        assert!(!out.contains(':'), "no field label may survive: {out}");
+    }
+
+    #[test]
+    fn free_form_instructions_pass_through() {
+        // Instructions that are already a plain description keep their words.
+        assert_eq!(
+            flatten_voice_design("A young woman, gentle and sweet voice"),
+            "A young woman, gentle and sweet voice"
         );
     }
 
     #[test]
     fn design_clause_drops_inner_parentheses() {
-        // Unbalanced parentheses would break VoxCPM's prefix delimiter.
+        // Unbalanced parentheses would terminate VoxCPM's prefix early.
         assert_eq!(
             flatten_voice_design("Profile: A butler (retired)"),
-            "Profile: A butler retired"
+            "A butler retired"
         );
     }
 
     #[test]
     fn voice_design_prefixes_the_text() {
         let out = apply_voice_design("Good evening.", Some("Style: Dry wit"), true);
-        assert_eq!(out, "(Style: Dry wit)Good evening.");
+        assert_eq!(out, "(Dry wit)Good evening.");
     }
 
     #[test]
@@ -469,6 +542,15 @@ mod tests {
     #[test]
     fn whitespace_only_instructions_do_not_prefix() {
         assert_eq!(apply_voice_design("Hello.", Some("  \n "), true), "Hello.");
+    }
+
+    #[test]
+    fn a_persona_with_only_a_name_does_not_prefix() {
+        // Dropping `Persona:` can empty the clause; no empty `()` may be sent.
+        assert_eq!(
+            apply_voice_design("Hello.", Some("Persona: Alfred"), true),
+            "Hello."
+        );
     }
 
     #[test]

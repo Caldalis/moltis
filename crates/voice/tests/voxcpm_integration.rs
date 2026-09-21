@@ -146,9 +146,13 @@ async fn persona_instructions_become_a_voice_design_prefix() {
         .expect("synthesis should succeed");
 
     let body = recorded_body(&server).await;
+    // Field labels are stripped: measured against a real VoxCPM2 server, a
+    // surviving `Key:` label collapses the effect back to the no-prefix
+    // baseline, and `Persona:` carries an internal name rather than voice
+    // direction.
     assert_eq!(
-        body["input"], "(Persona: Alfred, Style: Dry wit)Good evening, sir.",
-        "personas must arrive as a VoxCPM voice-design prefix"
+        body["input"], "(Dry wit)Good evening, sir.",
+        "personas must arrive as a plain VoxCPM voice-design prefix"
     );
     // VoxCPM2's serving adapter ignores `instructions`; sending it would be
     // dead weight at best and a 400 on a strict server at worst.

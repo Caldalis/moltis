@@ -302,7 +302,8 @@ endpoint = "http://localhost:5002"</code>
 
 <div id="voice-voxcpm-instructions" class="text-xs text-[var(--muted)]" style="display:none;line-height:1.6;">
   <strong>Install vLLM-Omni:</strong><br />
-  <code class="font-mono text-xs block my-1 p-1.5 bg-[var(--bg)] rounded whitespace-pre-wrap">uv pip install vllm==0.19.0 --torch-backend=auto
+  <code class="font-mono text-xs block my-1 p-1.5 bg-[var(--bg)] rounded whitespace-pre-wrap">uv pip install vllm==0.29.0 --torch-backend=auto
+uv pip install setuptools_scm ninja
 git clone https://github.com/vllm-project/vllm-omni.git &amp;&amp; cd vllm-omni
 uv pip install -e .</code>
   <strong>Start the server:</strong><br />

@@ -142,7 +142,6 @@ pub(crate) fn check_voxtral_compatibility(
     (compatible, reasons)
 }
 
-
 pub(super) async fn check_binary_available(name: &str) -> Option<String> {
     // Try to find the binary in PATH
     if let Ok(output) = tokio::process::Command::new("which")

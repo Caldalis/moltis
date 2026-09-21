@@ -210,10 +210,16 @@ which serves VoxCPM2 behind an OpenAI-compatible speech API.
 
 1. Install vLLM-Omni:
    ```bash
-   uv pip install vllm==0.19.0 --torch-backend=auto
+   uv pip install vllm==0.29.0 --torch-backend=auto
+   uv pip install setuptools_scm ninja
    git clone https://github.com/vllm-project/vllm-omni.git && cd vllm-omni
    uv pip install -e .
    ```
+
+   vLLM-Omni tracks vLLM by major.minor, so the two versions must match;
+   pairing its `main` with an older vLLM fails at import time.
+   `setuptools_scm` is required by `pip install -e .`, and `ninja` by
+   flashinfer's JIT compilation.
 
 2. Start the server:
    ```bash
@@ -243,8 +249,14 @@ It reads a voice description from a parenthesised prefix on the input text, so
 Moltis flattens the persona's rendered prompt into that prefix:
 
 ```text
-(Persona: Alfred, Profile: A wise British butler, Style: Dry wit)Good evening.
+(A wise British butler, Dry wit)Good evening.
 ```
+
+Only the persona's field *values* are sent. The field labels and the
+`Persona:` name are stripped, because VoxCPM only responds to a plain
+description: measuring F0 against a live server showed that a surviving
+`Key:` label collapses the effect back to the no-prefix baseline, while the
+same words unlabelled shift pitch substantially.
 
 Set `voice_design = false` to send text through unchanged. The prefix is also
 skipped when the text already begins with its own `(...)` clause, so a
